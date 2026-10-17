@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "slack-archive-mcp": {
+      "command": "/absolute/path/to/bun",
+      "args": [
+        "/absolute/path/to/slack-archive-mcp/src/mcp.ts",
+        "--archive-dir",
+        "/absolute/path/to/slack-archive-mcp/.archive"
+      ]
+    }
+  }
+}

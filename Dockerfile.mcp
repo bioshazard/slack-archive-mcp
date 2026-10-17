@@ -1,0 +1,13 @@
+FROM oven/bun:1.4.0 AS build
+WORKDIR /build
+COPY package.json bun.lock ./
+RUN --mount=type=cache,id=slack-archive-mcp-bun,target=/root/.bun/install/cache bun install --frozen-lockfile --production --network-concurrency=8
+COPY src ./src
+RUN bun build src/mcp.ts --target=bun --outdir=/out --minify
+
+FROM oven/bun:1.4.0-slim
+WORKDIR /app
+ENV ARCHIVE_SQLITE_PATH=/data/archive.sqlite
+COPY --from=build --chown=bun:bun /out/mcp.js /app/mcp.js
+USER bun
+ENTRYPOINT ["bun", "/app/mcp.js"]

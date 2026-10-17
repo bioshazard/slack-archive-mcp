@@ -1,0 +1,27 @@
+# Private exports and derived data.
+/data-*/
+/local/
+/.archive/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.[zZ][iI][pP]
+*.tar
+*.gz
+*.csv
+*.parquet
+node_modules/
+coverage/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+__pycache__/
+.DS_Store
+.idea/
+.vscode/
+.mcp.json

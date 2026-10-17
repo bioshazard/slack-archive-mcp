@@ -1,0 +1,10 @@
+# Allowlist: private exports, historical docs, databases, credentials and Git
+# history never enter the build context, regardless of their names.
+**
+!package.json
+!bun.lock
+!src/
+!src/**
+!Dockerfile
+!Dockerfile.mcp
+!.dockerignore

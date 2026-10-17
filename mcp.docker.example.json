@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "slack-archive-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--read-only",
+        "--network",
+        "none",
+        "--mount",
+        "type=bind,src=/absolute/path/archive.sqlite,dst=/data/archive.sqlite,readonly",
+        "ghcr.io/bioshazard/slack-archive-mcp:2.1.0"
+      ]
+    }
+  }
+}

@@ -132,6 +132,42 @@ retry. A failure before the pointer update leaves the remote pointer unchanged.
 Use one publisher per target prefix; remote pointer updates are last-writer-wins.
 Keys use SHA-256 fingerprints; S3 ETags are not treated as content hashes.
 
+### Recommended bucket layout
+
+Give each workspace its own prefix; keep original exports separate from derived
+artifacts. For example, in a bucket named `archive-bucket`:
+
+```text
+slack/<workspace>/
+  raw/
+    exports/
+      2024-01-01.zip
+      2024-06-01.zip
+      2025-01-01.zip
+  archive/
+    current.json
+    generations/<fingerprint>/
+      archive.sqlite
+      manifest.json
+```
+
+Upload one original export per ZIP without repackaging. Treat those objects as
+immutable: use a new filename for different bytes, even if the export date is the
+same. ISO-date names sort oldest to newest; explicit source arguments can override
+precedence. Prefixes organize objects; no empty folder objects are required.
+
+```sh
+bun run ingest --workspace community \
+  --archive-dir .archive \
+  --source-s3 s3://archive-bucket/slack/community/raw/exports \
+  --publish-s3 s3://archive-bucket/slack/community/archive
+```
+
+Replace `community` with your workspace namespace in both paths and the flag.
+The command reads remote ZIPs, builds and validates SQLite locally, then publishes
+the completed generation and updates the remote pointer last. Keep old generations
+for rollback. MCP serves a local copy of the selected completed SQLite file.
+
 Download a completed generation's `archive.sqlite` through your preferred S3
 client and mount it for MCP. Automatic cache synchronization and live Slack API
 ingestion are outside this release.

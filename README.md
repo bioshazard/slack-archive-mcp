@@ -1,7 +1,8 @@
 # slack-archive-mcp
 
 Turn overlapping Slack exports into portable community memory: a versioned SQLite
-archive with full-text search and read-only MCP tools. Built with **Effect 4 on
+archive with full-text search and read-only MCP tools over stdio or Streamable
+HTTP. Built with **Effect 4 on
 Bun**. MIT licensed. No embeddings or external services required.
 
 ```text
@@ -10,7 +11,7 @@ local exports ─┐
 S3 exports ────┘                                  ├─ local generation store
                                                   └─ optional S3 publication
 
-mounted SQLite → ArchiveReader port → stdio MCP → agent
+mounted SQLite → ArchiveReader port → stdio / HTTP MCP → agent
 ```
 
 The MCP server needs only its database. It does not need exports, S3 credentials,
@@ -48,14 +49,15 @@ Originals stay untouched; reconciliation happens inside SQLite.
 Pull the published serving image and mount **one completed SQLite file**:
 
 ```sh
-docker pull ghcr.io/bioshazard/slack-archive-mcp:2.1.0
+docker pull ghcr.io/bioshazard/slack-archive-mcp:2.2.0
 docker run --rm -i --read-only --network none \
   --mount type=bind,src=/absolute/path/archive.sqlite,dst=/data/archive.sqlite,readonly \
-  ghcr.io/bioshazard/slack-archive-mcp:2.1.0
+  ghcr.io/bioshazard/slack-archive-mcp:2.2.0
 ```
 
-This is stdio MCP: an MCP client launches the command and speaks JSON-RPC over
-stdin/stdout. There is no HTTP port to expose. Keep `-i`; do not allocate a TTY.
+The default is stdio MCP: a client launches the command and speaks JSON-RPC over
+stdin/stdout. Keep `-i`; do not allocate a TTY. For Kubernetes or network clients,
+select HTTP mode below.
 
 `ARCHIVE_SQLITE_PATH` overrides the mounted file location:
 
@@ -63,7 +65,7 @@ stdin/stdout. There is no HTTP port to expose. Keep `-i`; do not allocate a TTY.
 docker run --rm -i --read-only --network none \
   -e ARCHIVE_SQLITE_PATH=/mounted/custom.sqlite \
   --mount type=bind,src=/absolute/path/archive.sqlite,dst=/mounted/custom.sqlite,readonly \
-  ghcr.io/bioshazard/slack-archive-mcp:2.1.0
+  ghcr.io/bioshazard/slack-archive-mcp:2.2.0
 ```
 
 The image runs as the unprivileged `bun` user and contains only the bundled server
@@ -74,14 +76,52 @@ database mounted read-only. For local builds, run
 `docker build -f Dockerfile.mcp -t slack-archive-mcp:local .` and use that image name.
 
 Published images support Linux AMD64 and ARM64. Releases provide version tags
-(`2.1.0`, `2.1`), `latest` for stable releases, and `sha-<full-commit>` tags.
+(`2.2.0`, `2.2`), `latest` for stable releases, and `sha-<full-commit>` tags.
 Prefer an exact version or image digest for repeatable deployments. The ingest
-CLI is also available as `ghcr.io/bioshazard/slack-archive-cli:2.1.0`.
+CLI is also available as `ghcr.io/bioshazard/slack-archive-cli:2.2.0`.
 
 Configure your MCP client using [mcp.docker.example.json](mcp.docker.example.json).
 For a local Bun process, `bun run configure:mcp` generates ignored `.mcp.json`
 with absolute paths; copy that entry into your client configuration. No global
 client settings are modified.
+
+## Streamable HTTP / Kubernetes
+
+The same image supports stateless MCP Streamable HTTP at **`/mcp`**:
+
+```sh
+# Set MCP_AUTH_TOKEN in your environment before running; pass it through securely.
+docker run --rm --read-only \
+  --publish 127.0.0.1:3000:3000 \
+  -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_AUTH_TOKEN \
+  --mount type=bind,src=/absolute/path/archive.sqlite,dst=/data/archive.sqlite,readonly \
+  ghcr.io/bioshazard/slack-archive-mcp:2.2.0
+```
+
+Connect an MCP Streamable HTTP client to `http://localhost:3000/mcp`; if configured,
+send `Authorization: Bearer <MCP_AUTH_TOKEN>`. There is no built-in OAuth flow.
+Token authentication is optional for deployments protected by an existing access
+gateway. Use TLS termination and access controls appropriate to the archive's
+audience when exposing the endpoint.
+
+For Kubernetes, mount the completed SQLite file and set `MCP_TRANSPORT=http`,
+`MCP_HOST=0.0.0.0`, and optionally `MCP_PORT` (default 3000). Supply the token through
+your existing secret mechanism. No stdin attachment is needed. The image remains
+non-root (UID/GID 1000) and works with a read-only root filesystem and database.
+
+`GET /healthz` and `GET /readyz` return minimal status without bearer authentication;
+readiness checks the pinned archive reader. Startup fails before listening if the
+database cannot be opened. A configured host/origin allowlist also applies to probes,
+so configure their Host header accordingly. Shutdown drains HTTP requests before
+closing SQLite.
+
+Each POST gets its own SDK transport/server over one shared read-only reader.
+Responses are JSON; there is no session state, sticky routing, or long-lived GET
+SSE stream. `GET /mcp` and `DELETE /mcp` return 405; use a Streamable HTTP client,
+not a legacy SSE client. Requests are limited to 64 KiB. Browser origins are rejected
+unless explicitly allowed. The server never trusts forwarded host headers for
+its optional host allowlist. It serves one workspace per process, with no per-user
+archive permissions.
 
 ## Local serving and configuration
 
@@ -96,6 +136,12 @@ bun run mcp --archive-dir /absolute/path/.archive
 | `ARCHIVE_SQLITE_PATH` | Single self-contained SQLite file; ideal for containers |
 | `ARCHIVE_DIR` | Local generation store, default `<repo>/.archive` for MCP |
 | `--sqlite-path` / `--archive-dir` | Explicit flags override environment selection |
+| `MCP_TRANSPORT` / `--transport` | `stdio` (default) or `http` |
+| `MCP_HOST` / `--host` | Bind address, default `127.0.0.1`; use `0.0.0.0` inside a pod |
+| `MCP_PORT` / `--port` | HTTP port, default 3000 |
+| `MCP_AUTH_TOKEN` | Optional shared bearer token for `/mcp`; environment only |
+| `MCP_ALLOWED_HOSTS` | Optional comma-separated exact Host values, including port when sent |
+| `MCP_ALLOWED_ORIGINS` | Comma-separated browser origins; default rejects any Origin header |
 | `S3_ENDPOINT` | Optional S3-compatible endpoint for ingestion/publication |
 | `AWS_REGION` | S3 region, default `us-east-1` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | S3 credentials, used only by ingestion/publication |
@@ -243,8 +289,8 @@ against an earlier artifact still requires that artifact's trusted manifest hash
 
 Anyone with the database can read its entire contents, including historical
 observations. Keep audience-specific archives separate. Archived text is untrusted
-source material, never agent instructions. Remote multi-user auth/ACLs are not
-implemented.
+source material, never agent instructions. HTTP supports a shared bearer token;
+per-user ACLs and OAuth are not implemented.
 
 ## Development
 
@@ -259,6 +305,7 @@ src/adapters/storage/   Local and S3 export/publication implementations
 src/adapters/sqlite/    Native Bun SQLite materializer and read-only query layer
 src/cli.ts              Effect CLI and BunRuntime composition
 src/mcp.ts              MCP SDK adapter, ManagedRuntime and scoped serving
+src/adapters/mcp/       Stateless Streamable HTTP adapter
 scripts/                Smoke checks and local client configuration
 tests/                 Synthetic integration and architecture checks
 ```

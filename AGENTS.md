@@ -1,6 +1,6 @@
 # Working on slack-archive-mcp
 
-MIT-licensed Slack archive materialization and stdio MCP. Bun 1.4+, Effect 4.0.5,
+MIT-licensed Slack archive materialization and stdio/Streamable HTTP MCP. Bun 1.4+, Effect 4.0.5,
 SQLite FTS5. Read README.md, docs/architecture.md and docs/effect.md first.
 
 - Follow the official Effect 4 LLMS.md and installed types, not Effect 3 examples.
@@ -23,6 +23,8 @@ SQLite FTS5. Read README.md, docs/architecture.md and docs/effect.md first.
   ARCHIVE_SQLITE_PATH. It must not need S3 access or original export files.
 - Only MCP protocol frames go to stdout. Diagnostics use stderr. Scope database,
   runtime and transport lifetimes; do not hand-roll signal cleanup.
+- HTTP uses one stateless SDK transport/server per request over a shared reader.
+  Keep bearer checks, Origin rejection, bounded request bodies and probe behavior.
 - Preserve bounded retrieval, citations, generation guards and truncation flags.
 - ZIP input belongs behind Exports. Never extract members; scope compressed
   staging/handles, bound reads, validate CRC and preserve container provenance.

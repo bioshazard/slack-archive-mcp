@@ -10,4 +10,5 @@ WORKDIR /app
 ENV ARCHIVE_SQLITE_PATH=/data/archive.sqlite
 COPY --from=build --chown=bun:bun /out/mcp.js /app/mcp.js
 USER bun
+EXPOSE 3000
 ENTRYPOINT ["bun", "/app/mcp.js"]

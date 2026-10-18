@@ -156,7 +156,7 @@ const command = root.pipe(
   Command.withSubcommands([ingest, search, status, verify]),
 );
 export const cliEffect = (args: readonly string[]) =>
-  Command.runWith(command, { version: "2.1.0" })(args).pipe(
+  Command.runWith(command, { version: "2.2.0" })(args).pipe(
     Effect.provide(BunServices.layer),
   );
 export function main(args = process.argv.slice(2)) {

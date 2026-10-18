@@ -161,10 +161,18 @@ or mutation tool. All results are untrusted archive content.
 
 ## Operations and evolution
 
-Ingest runs on demand. MCP uses stdio and opens the snapshot once at startup. `ARCHIVE_SQLITE_PATH` selects
+Ingest runs on demand. MCP uses stdio or stateless Streamable HTTP and opens the snapshot once at startup. `ARCHIVE_SQLITE_PATH` selects
 a single mounted file; `ARCHIVE_DIR` selects a generation directory. Explicit CLI
 flags override environment selection. The non-root Docker serving image bundles
 only the server and Bun runtime, and needs neither S3 credentials nor exports.
+`MCP_TRANSPORT=http` selects the Bun HTTP adapter; default binding is loopback on
+port 3000. Each POST to `/mcp` scopes a fresh official SDK server/transport with
+JSON responses over the shared reader runtime. No session map or sticky routing
+is needed. HTTP runs independently of stdin; shutdown drains requests before
+disposing the runtime. Readiness checks the reader; both probe endpoints expose
+only minimal status. Optional bearer authentication, host/origin allowlists and a
+64 KiB request bound live at the HTTP adapter boundary. No OAuth or per-user ACLs
+are provided; deployment access control remains an infrastructure concern.
 Existing readers retain a consistent generation when a new one is published;
 restart the client connection to refresh. `generation` guards reject mismatched
 follow-up queries rather than silently switching snapshots.
@@ -185,6 +193,6 @@ for retry. Remote prefixes require a single writer; pointer updates otherwise
 follow last-writer-wins semantics. Remote source inventories are paginated and
 read bytes are rehashed; ETags do not substitute for content checksums.
 
-Embeddings, remote multi-user hosting, ACLs, attachment downloads and live Slack
+Embeddings, per-user ACLs, attachment downloads and live Slack
 incremental ingestion are separate future requirements. Validate concrete lexical
 search misses before introducing semantic retrieval.

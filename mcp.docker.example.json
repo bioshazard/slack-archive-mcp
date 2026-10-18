@@ -11,7 +11,7 @@
         "none",
         "--mount",
         "type=bind,src=/absolute/path/archive.sqlite,dst=/data/archive.sqlite,readonly",
-        "ghcr.io/bioshazard/slack-archive-mcp:2.1.0"
+        "ghcr.io/bioshazard/slack-archive-mcp:2.2.0"
       ]
     }
   }

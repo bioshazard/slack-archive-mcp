@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fixture } from "../tests/fixture.ts";
 import { exportZip } from "../tests/zip-fixture.ts";
+import { smokeHttpContainer } from "./http-container-smoke.ts";
 
 // Only a synthetic SQLite file is mounted; no exports, sidecar or credentials.
 const f = await fixture();
@@ -114,14 +115,16 @@ try {
     if (expanded.isError) throw new Error(`Container ${name} failed`);
   }
   if (stderr) throw new Error(`Unexpected container stderr: ${stderr}`);
+  await smokeHttpContainer(image, mountedDatabase, pointer.generation);
   console.log(
     JSON.stringify({
       ok: true,
       image,
-      transport: "stdio",
+      transports: ["stdio", "http"],
       singleMountedDatabase: true,
       containerZipIngestion: true,
-      network: "none",
+      stdioNetwork: "none",
+      httpAuthentication: true,
       readOnly: true,
     }),
   );

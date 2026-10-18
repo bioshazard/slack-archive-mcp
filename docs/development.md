@@ -21,6 +21,8 @@ They need neither real data nor network credentials. Coverage includes:
 - thread and context expansion, missing parents, original observations/citations;
 - query-only SQLite enforcement and generation mismatches;
 - CLI subprocess ingest/search/verify and genuine MCP SDK stdio round trips.
+- HTTP SDK initialization, concurrent stateless clients, bearer authentication,
+  host/origin validation, body limits, probes and shutdown with closed stdin;
 - stored/deflated ZIPs, ZIP64, data descriptors, wrapper folders, CRC/header
   corruption, unsafe paths, duplicate entries, limits and scoped cleanup;
 - local/S3 ZIP mixtures, direct S3 objects without listing, and prefix selection.
@@ -50,7 +52,9 @@ bun run docker:smoke
 
 The smoke test first ingests synthetic ZIPs using the CLI container, then mounts
 the resulting single SQLite file read-only into the serving container at a
-custom path, disables network access, and performs actual SDK stdio calls. It uses
+custom path, disables network access, and performs actual SDK stdio calls. It also
+starts a detached HTTP container with bearer authentication, checks readiness and
+performs SDK Streamable HTTP calls through a loopback-only published port. It uses
 ignored `local/` for the mount because some macOS Docker VMs do not share OS temp
 paths. The image context allowlist prevents exporting personal data to Docker.
 
